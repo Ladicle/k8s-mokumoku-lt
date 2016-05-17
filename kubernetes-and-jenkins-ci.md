@@ -1,4 +1,4 @@
-# KubernetesとJenkinsによるCI -チョットDocker-
+# KubernetesとJenkinsCI
 
 @ladicle
 
@@ -6,7 +6,7 @@
 
 # 目次
 
-1. 環境構築 - JenkinsとKubernetesの構成-
+1. 環境構築 - Jenkinsとk8sの構成-
 2. 試験 - CIの流れと設定ファイル -
 3. 所感 - Pros/Cons -
 
@@ -27,49 +27,81 @@
 各VMのOS: Ubuntu14.04
 
 ## Docker
-* Jenkins: https://hub.docker.com/_/jenkins/
-* ImageRegistry(DockerRegistry): https://docs.docker.com/registry/
+* [Jenkins](https://hub.docker.com/_/jenkins/)
+* [ImageRegistry](https://docs.docker.com/registry/)
 
 ## Ansible
-* Kubernetes: https://github.com/kubernetes/contrib/pull/802
+* [Kubernetes](https://github.com/kubernetes/contrib/pull/802)
 
 ---
 
 # Jenkinsの構築
 
 ## デフォルト機能を使った拡張
-* Plugin設定の追加
-* タイムゾーンの変更(コンテナ起動時のオプションなので忘れると再生成が必要)
-  `JAVA_OPTS='-Duser.timezone=Asia/Tokyo`
+* `plugin.txt`へ使用するPluginの追加
+* 起動オプションでタイムゾーンを指定
+
+        JAVA_OPTS='-Duser.timezone=Asia/Tokyo'
 
 ---
 
-# 作って捨てるため、Dockerfileに追記が必要なもの
-## Docker & Kubernetesの設定
-* kubectlの[バイナリ][1]インストール & `$HOME/.kube`に設定ファイル追加
-  (Ansibleで構築した場合、設定ファイルは各Nodeの`/etc/kubernetes/kubectl.kubeconfig`にある)
-* Dockerコマンドの[バイナリ][2]インストール & RemoteAPIようの鍵(ca.pem, server.pem, server-key.pem)を追加
-  (DOCKER_HOST, DOCKER_TLS_VERIFY, DOCKER_CERT_PATHはJenkinsの環境変数に指定しておくと便利)
+#### このままでは作って捨てたら戻ってこないので...
+## Dockerfileに追記が必要なもの
 
-## Jenkinsのユーザ情報, 全体設定、パスワード鍵情報等
-* 一度GUIで設定を入れたら以下のファイルが生成されるので、Dockerfileへ組み込む
-  * `$JENKINS_HOME/users/*` : ユーザ情報
-  * `$JENKINS_HOME/config.xml` : Jenkinsの全体設定
-  * `$JENKINS_HOME/credentials.xml` : 鍵やパスワード報情
+---
+
+## Kubernetes設定
+
+* kubectlのバイナリインストール 
+* `$HOME/.kube`に設定ファイル追加
+
+    Ansibleで構築した場合は各Nodeの以下パスを.kubeへ
+    /etc/kubernetes/kubectl.kubeconfig
+    
+---
+
+## Docker設定
+
+* Dockerコマンドのインストール
+* RemoteAPIようの鍵を追加
+ * ca.pem,
+ * server.pem, 
+ * server-key.pem
+ 
+    DOCKER_HOST, DOCKER_TLS_VERIFY, DOCKER_CERT_PATHは
+    Jenkinsの環境変数に指定しておくと便利
+ 
+---
+
+## ユーザ情報/全体設定/パスワード
+
+JenkinsGUIで設定後
+生成ファイルをDockerfileへ組み込む
+
+  * $JENKINS_HOME/users/*
+  * $JENKINS_HOME/config.xml
+  * $JENKINS_HOME/credentials.xml
+
+---
 
 ## JOB設定
-* Jobは[Jenkins Job Builder][3]使ってYAML管理
+
+[Jenkins Job Builder](http://docs.openstack.org/infra/jenkins-job-builder/)
+使ってJob設定をYAML管理
 
 ---
 
-# Kubernetesの構築
+## k8sの構築
 
-## Playbookに+αした部分
-* Ansibleでデプロイ対象がSSH鍵認証のみ対応していたので`ansible.cfg`を追加
-* `group_vars/all.yaml`にPrivateImageRegistryのアドレス追加
+#### Playbookに+αした部
+`group_vars/all.yaml`に以下を追加
+* ImageRegistryのアドレス
+* SSHユーザ名
 
-## 構築後の設定
-* [SecurityContext][4]でImageRegistryのログイン情報を追加
+#### 構築後の手動設定
+[SecurityContext](http://kubernetes.io/docs/user-guide/security-context/)でImageRegistryのログイン情報を追加
+
+    kubectl create secret docker-registry <key-name> --docker-server=<registry address> --docker-username=<login user> --docker-password='<login password>' --docker-email='<email>'
 
 ---
 
@@ -77,17 +109,17 @@
 
 ---
 
-# 試験の流れ
+## 試験の流れ
 
 ![testflow](img/testflow.png)
 
 ---
 
-# 文法チェック
+## 文法チェック
 
 チェック対象のファイルを各コマンドが実行可能なコンテナにマウントさせて試験している
 
-* k8sのManifest: Pythonの[yamllint][5]
+* k8sのManifest: Pythonの[yamllint](https://pypi.python.org/pypi/yamllint/0.5.1)
 * Dockerfile: JSのdockerlint
 
 > Manifestの文法チェックでは、実際にcreateさせるかで迷ったが
@@ -96,31 +128,62 @@
 
 ---
 
-# Unit Test
+## Unit Test
 
 JenkinsのWorkspaceをマウントしたコンテナ起動 -> 単体テスト実行 -> お片付け
 
 ---
 
-# Integration Test
+## Integration Test
 
 Dockerイメージのビルド -> 前回のお片付け -> コンテナで全コンポーネント起動 -> シナリオテスト実行
 
 ---
 
-# Manifestの拡張子
+## Manifestの拡張子
 
 JSONとYAMLのどちらも選択できるが、
-混在するのは論外なのでチームにアンケートとったところ満場一致で**YAML**に決定。
+混在するのは論外なのでチームにアンケートとった。
+=> 満場一致で**YAML**に決定。
 
 > JSON, 読むのは`jq`あるので良いが書くのがつらい
-> YAMLの`jq`的な存在[`yq`][6]も存在する。ちょっと便利
+> YAMLの`jq`的な存在[yq](https://github.com/abesto/yq)も存在する。ちょっと便利
 
 ---
 
-# [おまけ] Jenkins -KubernetesPlugin-
+## Manifestへ変数の埋め込み
 
-k8sを操作するPluginは観測する限り[KubernetesPlugin][7]のみ
+1. パスワード含め、変数はJenkinsから操作しやすいように環境変数に代入
+2. 環境変数を以下のコマンドで展開してall-in-oneのファイルを作成
+
+        printf "cat <<++EOS\n%s\n++EOS\n" "$(cat *.yaml)" | sh > all-in-one.yaml
+        
+> 管理しやすいようにYAMLファイルは各コンポーネントごとにserver/deploymentを作成している
+> ただし、create/deleteしやすいよう変数展開時にall-in-one.yamlへまとめてる
+
+---
+
+## ConfigMapとSecurityContexts
+
+最低限必要なPrivateRegistryからのイメージPull用のSecurityContexts以外
+ConfigMapやSecurityContextsは使用していない
+これはJenkinsで動作させる以上、環境変数化したほうがシンプルかつ柔軟に操作できるため
+
+      configMap:
+        name: redis-volume-config
+        items:
+          - path: "etc/redis.conf"
+            key: redis.conf
+
+> configMapが上記のように一つづつ指定するのではなくpathで一括指定できたら
+> コンポーネント間で共通の環境変数とかに利用しやすいんですが...
+> テンプレートエンジンかますとか以外で良い方法募集中!
+
+---
+
+## [おまけ] Jenkins -KubernetesPlugin-
+
+k8sを操作するPluginは観測する限り[KubernetesPlugin](https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin)のみ
 これはJenkinsのSlaveをKubenetes上にのせるものなので自前Manifestの操作には向かない
 
 > JenkinsJobBuilderも未対応
@@ -137,21 +200,19 @@ k8sを操作するPluginは観測する限り[KubernetesPlugin][7]のみ
  * パラメータの受け渡しも必要なく、ファイル指定のdeleteコマンドだけで試験の後片付けできるのがよい
 * Slackコミュニティーが活発&寛容で、`#kubernetes-user`に質問投げると誰かしら答えてくれる
 
+---
+
 ## Cons
-- 覚えることおおい
+
+覚えることおおい
+
+---
 
 ## その他
-* Kubernetesのレポジトリ、いろんなBotが住んでいて便利
-  (特にRVを煽ってくるのがよい)
+
+Kubernetesのレポジトリ、いろんなBotが住んでいて便利
+(特にRVを煽ってくるのがよい)
 
 ---
 
 # Thank you!
-
-  [1]: https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/linux/amd64/kubectl
-  [2]: https://get.docker.com/builds/Linux/i386/docker-$%7BDOCKER_VERSION%7D
-  [3]: http://docs.openstack.org/infra/jenkins-job-builder/
-  [4]: http://kubernetes.io/docs/user-guide/security-context/
-  [5]: https://pypi.python.org/pypi/yamllint/0.5.1
-  [6]: https://github.com/abesto/yq
-  [7]: https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin

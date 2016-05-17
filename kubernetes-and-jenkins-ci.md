@@ -18,7 +18,7 @@
 
 # 現在の環境
 
-![Architecture](./architecture2.png)
+![Architecture](img/architecture.png)
 
 ---
 
@@ -79,7 +79,7 @@
 
 # 試験の流れ
 
-![testflow](./testflow.png)
+![testflow](img/testflow.png)
 
 ---
 

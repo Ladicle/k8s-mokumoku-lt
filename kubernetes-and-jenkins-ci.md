@@ -6,9 +6,9 @@
 
 # 目次
 
-1. 環境構築 - Jenkinsとk8sの構成-
-2. 試験 - CIの流れと設定ファイル -
-3. 所感 - Pros/Cons -
+1. 環境構築 - Jenkinsとk8sの構成
+2. 試験 - CIの流れと設定ファイル
+3. 所感 - Pros/Cons
 
 ---
 
@@ -135,14 +135,16 @@ JenkinsGUIで設定後
 
 ![ut](img/ut.png)
 
-JenkinsのWorkspaceをマウントしたコンテナ起動 -> 単体テスト実行 -> お片付け
+コンテナの生成/テスト/削除の3JOBに分割している
+各JOBに環境変数でコンテナのIDを渡し, run/exec/rm
 
 ---
 
 ## Integration Test
 
-Dockerイメージのビルド -> 前回のお片付け -> コンテナで全コンポーネント起動 -> シナリオテスト実行
+![it](img/it.png)
 
+> 外部公開するものはServiceにNodePortを指定してMinionを叩く
 > お片付けが最後ではないのは失敗した時に解析するため
 > UTでお片付けが最後なのはITに比べテストのログで十分であるため
 
@@ -168,24 +170,6 @@ JSONとYAMLのどちらも選択できるが、
         
 > 管理しやすいようにYAMLファイルは各コンポーネントごとにserver/deploymentを作成している
 > ただし、create/deleteしやすいよう変数展開時にall-in-one.yamlへまとめてる
-
----
-
-## ConfigMapとSecurityContexts
-
-最低限必要なPrivateRegistryからのイメージPull用のSecurityContexts以外
-ConfigMapやSecurityContextsは使用していない
-これはJenkinsで動作させる以上、環境変数化したほうがシンプルかつ柔軟に操作できるため
-
-      configMap:
-        name: redis-volume-config
-        items:
-          - path: "etc/redis.conf"
-            key: redis.conf
-
-> configMapが上記のように一つづつ指定するのではなくpathで一括指定できたら
-> コンポーネント間で共通の環境変数とかに利用しやすいんですが...
-> テンプレートエンジンかますとか以外で良い方法募集中!
 
 ---
 

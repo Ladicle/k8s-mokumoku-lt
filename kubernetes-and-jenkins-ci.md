@@ -113,6 +113,9 @@ JenkinsGUIで設定後
 
 ![testflow](img/testflow.png)
 
+> UTとITは並列で実行しどちらかが失敗したら停止する
+> 結果はPRのコメント&Slack
+
 ---
 
 ## 文法チェック
@@ -130,6 +133,8 @@ JenkinsGUIで設定後
 
 ## Unit Test
 
+![ut](img/ut.png)
+
 JenkinsのWorkspaceをマウントしたコンテナ起動 -> 単体テスト実行 -> お片付け
 
 ---
@@ -137,6 +142,9 @@ JenkinsのWorkspaceをマウントしたコンテナ起動 -> 単体テスト実
 ## Integration Test
 
 Dockerイメージのビルド -> 前回のお片付け -> コンテナで全コンポーネント起動 -> シナリオテスト実行
+
+> お片付けが最後ではないのは失敗した時に解析するため
+> UTでお片付けが最後なのはITに比べテストのログで十分であるため
 
 ---
 

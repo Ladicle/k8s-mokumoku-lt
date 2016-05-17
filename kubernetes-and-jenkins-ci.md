@@ -94,9 +94,9 @@ JenkinsGUIで設定後
 ## k8sの構築
 
 #### Playbookに+αした部
-`group_vars/all.yaml`に以下を追加
-* ImageRegistryのアドレス
-* SSHユーザ名
+* `group_vars/all.yaml`に以下を追加
+ * ImageRegistryのアドレス
+ * SSHユーザ名
 
 #### 構築後の手動設定
 [SecurityContext](http://kubernetes.io/docs/user-guide/security-context/)でImageRegistryのログイン情報を追加
